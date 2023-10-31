@@ -1,0 +1,164 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} {% if search %}搜索配置: {{ search }}{% else %}全部配置
+{% endif %} {% endblock title %}
+
+{% block content %}
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header pb-0">
+                        <h6>{% if search %}搜索配置: {{ search }}{% else %}
+                            全部配置{% endif %}
+                            (<span id="post-number">{{ post_number }}</span>个)</h6>
+                    </div>
+                    <div class="card-body px-0 pt-0 pb-2">
+                        <div class="table-responsive p-0">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-secondary text-xxs font-weight-bolder opacity-7">
+                                        <span class="px-1 text-secondary">配置名</span>
+                                    </th>
+                                    <th class="text-secondary text-xxs font-weight-bolder opacity-7">
+                                        <span class="text-secondary">大小</span>
+                                    </th>
+                                    <th class="text-center text-secondary text-xxs
+                                    font-weight-bolder
+                                    opacity-7">
+                                        <span class="text-secondary">操作</span>
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody id="posts-list">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer py-4">
+                        <ul class="pagination justify-content-end mb-0">
+                            <li class="page-item" id="prev-page">
+                                <a class="page-link"
+                                   href="javascript:prev_page()">
+                                    <i class="fas fa-angle-left"></i>
+                                    <span class="sr-only">上一页</span>
+                                </a>
+                            </li>
+                            {% for i in page_number|get_range %}
+                                <li class="page-item" id="page-{{ i }}">
+                                    <a class="page-link"
+                                       href="javascript:change_page({{ i }})">{{ i }}</a>
+                                </li>
+                            {% endfor %}
+
+                            <li class="page-item" id="next-page">
+                                <a class="page-link"
+                                   href="javascript:next_page()">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span class="sr-only">下一页</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% include "includes/footer.html" %}
+
+    </div>
+{% endblock content %}
+
+<!-- Specific JS goes HERE -->
+{% block javascripts %}
+
+    <script>
+        var posts = {{ posts|safe }};
+        var _page = 1;
+
+        function change_page(page) {
+            scrollToTop();
+            let color = checkIfDark()?"text-white":"text-dark";
+            let post_temp = `<tr>
+                                <td>
+                                    <div class="d-flex px-4 py-1">
+                                        <h6 class="mb-0 text-sm">@@name@@</h6>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="text-xs font-weight-bold opacity-8
+                                    ${color}">@@size@@</span>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <a href="/edit_config.html?file=@@path@@"><i
+                                    class="fa fa-edit
+                                    text-primary text-xxs"></i></a>
+                                </td>
+                            </tr>`;
+            let page_posts;
+            if (posts.length > page * 15 + 1) {
+                page_posts = posts.slice(15 * (page - 1), page * 15);
+            } else {
+                page_posts = posts.slice(15 * (page - 1));
+            }
+            let list = "";
+            for (let i = 0; i < page_posts.length; i++) {
+                list += post_temp.replaceAll("@@name@@", excerpt_by_local(page_posts[i].name, 50))
+                    .replaceAll("@@size@@", page_posts[i].size)
+                    .replaceAll("@@path@@", encodeURIComponent(page_posts[i].path))
+                    .replaceAll("@@name@@", encodeURIComponent(page_posts[i].name));
+            }
+            $("#page-" + _page).removeClass("active");
+            $("#page-" + _page).children().removeClass("text-white");
+            $("#page-" + page).addClass("active");
+            $("#page-" + page).children().addClass("text-white");
+            $("#posts-list").html(list);
+            _page = page;
+            if (page <= 1) {
+                $("#prev-page").addClass("disabled");
+            } else {
+                $("#prev-page").removeClass("disabled");
+            }
+            if (page >={{ page_number }}) {
+                $("#next-page").addClass("disabled");
+            } else {
+                $("#next-page").removeClass("disabled");
+            }
+        }
+
+        function prev_page() {
+            if (_page > 1) {
+                change_page(_page - 1);
+            } else {
+                notyf.error("已是第一页");
+            }
+        }
+
+        function next_page() {
+            if (_page <{{ page_number }}) {
+                change_page(_page + 1);
+            } else {
+                notyf.error("已是最后一页");
+            }
+        }
+
+        change_page(1);
+
+        $.ajaxSetup({
+            data: {csrfmiddlewaretoken: '{{ csrf_token }}'},
+        });
+
+        function excerpt_by_local(content, length) {
+            let excerpt = content.replace(/<img[^>]*>/g, "");
+            excerpt = excerpt.replace(/<iframe[^>]*>/g, "");
+            excerpt = excerpt.replace(/<script[^>]*>/g, "");
+            excerpt = excerpt.replace(/<style[^>]*>/g, "");
+            excerpt = excerpt.replace(/<[^>]*>/g, "");
+            excerpt = excerpt.replace(/\n/g, " ");
+            return excerpt.substring(0, length) + (content.length > length ? "..." : "");
+        }
+
+
+    </script>
+{% endblock javascripts %}

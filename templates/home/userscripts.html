@@ -1,0 +1,283 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} {% if search %}搜索命令: {{ search }}{% else %}云端命令
+{% endif %} {% endblock title %}
+
+{% block content %}
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header pb-0">
+                        <h6>{% if search %}搜索命令: {{ search }}{% else %}
+                            云端命令{% endif %}
+                            (<span id="post-number">{{ post_number }}</span>个)
+                        </h6>
+                    </div>
+                    <div class="card-body px-0 pt-0 pb-2">
+                        <div class="table-responsive p-0">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-secondary text-xxs font-weight-bolder opacity-7">
+                                        <span class="px-1 text-secondary">名称</span>
+                                    </th>
+                                    <th class="text-secondary text-xxs font-weight-bolder opacity-7">
+                                        <span class="text-secondary">作者</span>
+                                    </th>
+
+                                    <th class="text-secondary text-xxs font-weight-bolder opacity-7">
+                                        <span class="text-secondary">简介</span>
+                                    </th>
+                                    <th class="ttext-secondary text-xxs font-weight-bolder
+                                    text-center opacity-7">
+                                        <span class="text-secondary">操作</span>
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody id="posts-list">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer py-4">
+                        <ul class="pagination justify-content-end mb-0">
+                            <li class="page-item" id="prev-page">
+                                <a class="page-link"
+                                   href="javascript:prev_page()">
+                                    <i class="fas fa-angle-left"></i>
+                                    <span class="sr-only">上一页</span>
+                                </a>
+                            </li>
+                            {% for i in page_number|get_range %}
+                                <li class="page-item" id="page-{{ i }}">
+                                    <a class="page-link"
+                                       href="javascript:change_page({{ i }})">{{ i }}</a>
+                                </li>
+                            {% endfor %}
+
+                            <li class="page-item" id="next-page">
+                                <a class="page-link"
+                                   href="javascript:next_page()">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span class="sr-only">下一页</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% include "includes/footer.html" %}
+
+    </div>
+    <div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-white">
+                <div class="modal-header" style="border: none;">
+                    <h5 class="modal-title fs-5" id="resultModalLabel">运行结果</h5>
+                    <button type="button" data-bs-dismiss="modal"
+                            aria-label="Close" style="box-sizing: content-box;width: 1em;height:
+                            1em;padding: .25em;color: #8392ab;border: 0;border-radius: .375rem;
+                            opacity: .5;background: none">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="result-container">
+                </div>
+                <div class="modal-footer" style="border: none;">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="runModal" tabindex="-1" aria-labelledby="runModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-white">
+                <div class="modal-header" style="border: none;">
+                    <h5 class="modal-title" id="runModalLabel">提示</h5>
+                    <button type="button" data-bs-dismiss="modal"
+                            aria-label="Close" style="box-sizing: content-box;width: 1em;height:
+                            1em;padding: .25em;color: #8392ab;border: 0;border-radius: .375rem;
+                            opacity: .5;background: none">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="runContainer">
+                </div>
+                <div class="modal-footer" style="border: none;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消
+                    </button>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal"
+                            onclick="run_script()">确定
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
+
+<!-- Specific JS goes HERE -->
+{% block javascripts %}
+
+    <script>
+        var posts = {{ all_posts|safe }};
+        var _page = 1;
+
+        function change_page(page) {
+            scrollToTop();
+            let color = checkIfDark() ? "text-white" : "text-dark";
+            let post_temp = `<tr>
+                                <td>
+                                    <div class="d-flex px-4 py-1">
+                                        <h6 class="mb-0 text-sm">@@name@@</h6>
+
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="text-xs font-weight-bold opacity-8
+                                    ${color}">@@author@@</span>
+                                </td>
+                                <td>
+                                    <span class="text-xs font-weight-bold opacity-8
+                                    ${color}">@@description@@</span>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <a href="javascript:show_run('@@path@@')">
+                                    <i class="fa fa-external-link-alt text-primary text-xxs"></i></a>
+                                </td>
+                            </tr>`;
+            let page_posts;
+            if (posts.length > page * 15 + 1) {
+                page_posts = posts.slice(15 * (page - 1), page * 15);
+            } else {
+                page_posts = posts.slice(15 * (page - 1));
+            }
+            let list = "";
+            for (let i = 0; i < page_posts.length; i++) {
+                list += post_temp.replaceAll("@@name@@", page_posts[i].name)
+                    .replaceAll("@@author@@", page_posts[i].author)
+                    .replaceAll("@@description@@", page_posts[i].description)
+                    .replaceAll("@@path@@", page_posts[i].path);
+            }
+            $("#page-" + _page).removeClass("active");
+            $("#page-" + _page).children().removeClass("text-white");
+            $("#page-" + page).addClass("active");
+            $("#page-" + page).children().addClass("text-white");
+            $("#posts-list").html(list);
+            _page = page;
+            if (page <= 1) {
+                $("#prev-page").addClass("disabled");
+            } else {
+                $("#prev-page").removeClass("disabled");
+            }
+            if (page >={{ page_number }}) {
+                $("#next-page").addClass("disabled");
+            } else {
+                $("#next-page").removeClass("disabled");
+            }
+        }
+
+        function prev_page() {
+            if (_page > 1) {
+                change_page(_page - 1);
+            } else {
+                notyf.error("已是第一页");
+            }
+        }
+
+        function next_page() {
+            if (_page <{{ page_number }}) {
+                change_page(_page + 1);
+            } else {
+                notyf.error("已是最后一页");
+            }
+        }
+
+        change_page(1);
+
+        $.ajaxSetup({
+            data: {csrfmiddlewaretoken: '{{ csrf_token }}'},
+        });
+
+        function excerpt_by_local(content, length) {
+            let excerpt = content.replace(/<img[^>]*>/g, "");
+            excerpt = excerpt.replace(/<iframe[^>]*>/g, "");
+            excerpt = excerpt.replace(/<script[^>]*>/g, "");
+            excerpt = excerpt.replace(/<style[^>]*>/g, "");
+            excerpt = excerpt.replace(/<[^>]*>/g, "");
+            excerpt = excerpt.replace(/\n/g, " ");
+            return excerpt.substring(0, length) + (content.length > length ? "..." : "");
+        }
+
+        function show_run(path) {
+            let html = "";
+            //$("#script-description").text(description);
+            let argv = [];
+            let color = checkIfDark() ? "bg-gradient-dark text-white" : "bg-white text-dark";
+            for (let i = 0; i <= posts.length; i++) {
+                if (posts[i]["path"] === path) {
+                    argv = posts[i]["argv"];
+                    break;
+                }
+            }
+            if (argv) {
+                html = "请输入参数:";
+                for (let i = 0; i < argv.length; i++) {
+                    html += `<div class="form-group">
+                                        <input type="text" name="argv-${argv[i]["name"]}"
+                                        class="form-control ${color}"
+                                               placeholder="${argv[i]["placeholder"]}">
+                                    </div>`;
+                }
+            }
+            html += "确认要执行 <a id='script-path'>" + path + "</a> 吗？此操作不可中止";
+            $("#runContainer").html(html);
+            $("#runModal").modal("show");
+        }
+
+        function run_script() {
+            let loading = new KZ_Loading('正在运行中...');
+            let file = $("#script-path").text();
+            let argv = [];
+            for (let i = 0; i <= posts.length; i++) {
+                if (posts[i]["path"] === file) {
+                    argv = posts[i]["argv"];
+                    break;
+                }
+            }
+            let data = {};
+            if (argv) {
+                for (let i = 0; i < argv.length; i++) {
+                    data[argv[i]["name"]] = $(`input[name=argv-${argv[i]["name"]}]`).val();
+                }
+            }
+            loading.show();
+            $.ajax({
+                url: '/api/run_online_script/',
+                method: 'post',
+                data: {"path": file, "argv": JSON.stringify(data)},
+                dataType: 'JSON',
+                success: function (res) {
+                    loading.destroy();
+                    if (res.status) {
+                        notyf.success(res.msg);
+                        $("#result-container").html(res.data.replaceAll("\n", "<br>"));
+                        $("#resultModal").modal("show");
+                    } else {
+                        notyf.error(res.msg);
+                    }
+                },
+                error: function (res) {
+                    loading.destroy();
+                    notyf.error("网络错误！");
+                }
+            })
+        }
+
+    </script>
+{% endblock javascripts %}
